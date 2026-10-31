@@ -1,0 +1,17 @@
+# EasyEDA Pro
+*.bak
+_autosave-*
+*.epro~
+# Arduino / PlatformIO
+.pio/
+build/
+*.elf
+*.bin
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+# large binaries (use git-lfs or keep out of repo)
+*.step
+*.stp
+*.zip

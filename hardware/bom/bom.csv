@@ -1,0 +1,9 @@
+Item,Qty,Reference,Value,Package,LCSC,Notes
+1,64,U1-U64,A3144,Hall sensor TO-92,,analog output, check polarity
+2,64,D1-D64,WS2812B,5050,,1 per square, data chain
+3,1,U65,ESP32-WROOM-32,Module,,main brain
+4,2,U66-U67,CD74HC4067,SOIC-24,,mux for hall sensors
+5,1,U68,AMS1117-3.3,SOT-223,,3.3v reg
+6,1,J1,USB-C,USB-C,,power + programming
+7,1,C1,100uF,Elec,,bulk cap
+8,8,C2-C9,100nF,0603,,decoupling
