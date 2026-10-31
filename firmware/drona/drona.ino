@@ -1,6 +1,13 @@
 // drona - smart chess board firmware
 // esp32 + 64 ws2812 + hall sensors via mux
 // hackclub stardance 2026
+//
+// led index -> square mapping: snake order
+// row0: 0..7  (left->right)
+// row1: 15..8 (right->left)
+// ... figure out the rest before wiring or cry later
+// TODO: calibrate hall threshold on real board
+// TODO: cap brightness (30%) so 5v rail survives
 
 #include <FastLED.h>
 
