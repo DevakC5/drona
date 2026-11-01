@@ -1,23 +1,32 @@
 // drona - smart chess board firmware
-// esp32 + 64 ws2812 + hall sensors via mux
+// esp32-s3 + 64 ws2812 + a3144 halls via 4x mcp23s17 (spi)
 // hackclub stardance 2026
 //
 // led index -> square mapping: snake order
 // row0: 0..7  (left->right)
 // row1: 15..8 (right->left)
 // ... figure out the rest before wiring or cry later
-// TODO: calibrate hall threshold on real board
-// TODO: cap brightness (30%) so 5v rail survives
+// brightness capped ~30% (75/255) so 5v rail survives
+// a3144 is open-collector: magnet present = pin LOW (active low)
 
+#include <SPI.h>
 #include <FastLED.h>
 
-#define LED_PIN     5
+#define LED_PIN     14   // safe gpio on esp32-s3 (not a strapping pin)
 #define NUM_LEDS    64
-#define MUX_S0      16
-#define MUX_S1      17
-#define MUX_S2      18
-#define MUX_S3      19
-#define MUX_SIG     34   // adc input
+#define CS_PIN      10   // shared cs for all 4 mcp23s17
+#define SCK_PIN     12
+#define MISO_PIN    13
+#define MOSI_PIN    11
+
+// mcp23s17 registers (bank 0)
+#define MCP_IODIRA  0x00
+#define MCP_IODIRB  0x01
+#define MCP_IOCON   0x0A
+#define MCP_GPPUA   0x0C
+#define MCP_GPPUB   0x0D
+#define MCP_GPIOA   0x12
+#define MCP_GPIOB   0x13
 
 CRGB leds[NUM_LEDS];
 
@@ -26,38 +35,66 @@ State state = IDLE;
 
 int lastSquare = -1;
 
+// --- mcp23s17 helpers (spi, hardware addressing) ---
+
+void mcpWrite(uint8_t dev, uint8_t reg, uint8_t val) {
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(0x40 | (dev << 1)); // write opcode + hw address
+  SPI.transfer(reg);
+  SPI.transfer(val);
+  digitalWrite(CS_PIN, HIGH);
+  SPI.endTransaction();
+}
+
+uint8_t mcpRead(uint8_t dev, uint8_t reg) {
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(CS_PIN, LOW);
+  SPI.transfer(0x41 | (dev << 1)); // read opcode + hw address
+  SPI.transfer(reg);
+  uint8_t val = SPI.transfer(0x00);
+  digitalWrite(CS_PIN, HIGH);
+  SPI.endTransaction();
+  return val;
+}
+
 void setup() {
   Serial.begin(115200);
   FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(60);
+  FastLED.setBrightness(75); // ~30% cap so 5v rail survives
 
-  pinMode(MUX_S0, OUTPUT);
-  pinMode(MUX_S1, OUTPUT);
-  pinMode(MUX_S2, OUTPUT);
-  pinMode(MUX_S3, OUTPUT);
+  pinMode(CS_PIN, OUTPUT);
+  digitalWrite(CS_PIN, HIGH);
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
 
-  // all leds off on boot
+  // enable hardware addressing on all devices at once (haen=0 => broadcast)
+  mcpWrite(0, MCP_IOCON, 0x08);
+
+  // configure all 4 expanders: inputs with pullups (a3144 open-collector)
+  for (uint8_t dev = 0; dev < 4; dev++) {
+    mcpWrite(dev, MCP_IODIRA, 0xFF);
+    mcpWrite(dev, MCP_IODIRB, 0xFF);
+    mcpWrite(dev, MCP_GPPUA,  0xFF);
+    mcpWrite(dev, MCP_GPPUB,  0xFF);
+  }
+
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 
   Serial.println("drona boot ok");
 }
 
-// read one channel of the mux
-int readMux(int ch) {
-  digitalWrite(MUX_S0, ch & 1);
-  digitalWrite(MUX_S1, (ch >> 1) & 1);
-  digitalWrite(MUX_S2, (ch >> 2) & 1);
-  digitalWrite(MUX_S3, (ch >> 3) & 1);
-  delayMicroseconds(50);
-  return analogRead(MUX_SIG);
-}
-
-// scan all 64 hall sensors, return square index with piece present (or -1)
+// scan all 64 sensors; return first occupied square index, or -1
+// device 0 = squares 0-15, device 1 = 16-31, ...
+// port a = low 8, port b = high 8; bit low (active low) = piece present
 int scanBoard() {
-  for (int i = 0; i < 64; i++) {
-    int v = readMux(i % 16);  // todo: handle 2 muxes / row select
-    if (v < 2000) return i;   // threshold TBD, calibrate on real board
+  for (uint8_t dev = 0; dev < 4; dev++) {
+    uint8_t a = mcpRead(dev, MCP_GPIOA);
+    uint8_t b = mcpRead(dev, MCP_GPIOB);
+    for (uint8_t i = 0; i < 8; i++) {
+      if (!((a >> i) & 1)) return dev * 16 + i;
+      if (!((b >> i) & 1)) return dev * 16 + 8 + i;
+    }
   }
   return -1;
 }
@@ -72,7 +109,6 @@ void loop() {
     state = LIFTED;
     Serial.print("lifted: "); Serial.println(sq);
   } else if (state == LIFTED && sq == -1) {
-    // piece put back or moved; for now just reset
     fill_solid(leds, NUM_LEDS, CRGB::Black);
     FastLED.show();
     state = IDLE;
@@ -81,9 +117,3 @@ void loop() {
 
   delay(50);
 }
-```
-
-Wait, the scanBoard only uses one mux with 16 channels but 64 squares. This is a prototype sketch with a todo. That's realistic for a first sketch. Good.
-
-Let me also create docs/bringup.md and docs/photos/.gitkeep.<|end|><|start|> assistant to=write<|channel|>analysis <|constrain|>xml<|message|><rfl:parameter name="path">
-D:\Projects\drona\docs\bringup.md

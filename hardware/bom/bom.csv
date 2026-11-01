@@ -1,8 +1,8 @@
 Item,Qty,Reference,Value,Package,LCSC,Notes
-1,64,U1-U64,A3144,Hall sensor TO-92,,digital; magnet polarity matters
+1,64,U1-U64,A3144,Hall sensor TO-92,,digital; magnet polarity matters; open-collector needs pullup
 2,64,D1-D64,WS2812B,5050,,1 per square; chained in snake order
-3,1,U65,ESP32-WROOM-32,Module,,smd module soldered down
-4,4,U66-U69,CD74HC4067,SOIC-24,,4x16ch mux; 4 separate sig lines
+3,1,U65,ESP32-S3-WROOM-1,Module,,main brain; offline chess; SMD module soldered down
+4,4,U66-U69,MCP23S17,SOIC-28,,SPI I/O expander; 16 inputs each; 4x = 64 sensors; hardware addressing (A0-A2)
 5,1,U70,AMS1117-3.3,SOT-223,,3.3v for esp32
 6,1,J1,USB-C,USB-C,,data + programming
 7,1,J2,Barrel jack 5.5x2.1,TH,,5v for leds (usb not enough)

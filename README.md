@@ -4,7 +4,7 @@ smart chess board. pieces have magnets, board has hall sensors, leds light up un
 
 ## whats in here
 - hardware/  easyeda pro files
-- firmware/  arduino code for esp32
+- firmware/  arduino code for esp32-s3
 - docs/      photos and notes
 
 ## status
@@ -17,7 +17,7 @@ rev1 not ordered yet. schematic half done. praying.
 1. open hardware/easyeda/drona.epro in easyeda pro
 2. export gerbers
 3. send to jlcpcb or whatever
-4. flash firmware/drona/drona.ino to esp32
+4. flash firmware/drona/drona.ino to esp32-s3
 5. cry
 
 ## credits
